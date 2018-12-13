@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #include "activation_layer.h"
 #include "activations.h"
@@ -1078,12 +1079,14 @@ void load_batchnorm_weights(layer l, FILE *fp)
 
 void load_convolutional_weights_binary(layer l, FILE *fp)
 {
+    raise(SIGABRT);
     fread(l.biases, sizeof(float), l.n, fp);
     if (l.batch_normalize && (!l.dontloadscales)){
         fread(l.scales, sizeof(float), l.n, fp);
         fread(l.rolling_mean, sizeof(float), l.n, fp);
         fread(l.rolling_variance, sizeof(float), l.n, fp);
     }
+
     int size = l.c*l.size*l.size;
     int i, j, k;
     for(i = 0; i < l.n; ++i){
@@ -1099,6 +1102,7 @@ void load_convolutional_weights_binary(layer l, FILE *fp)
             }
         }
     }
+
 #ifdef GPU
     if(gpu_index >= 0){
         push_convolutional_layer(l);
@@ -1108,6 +1112,7 @@ void load_convolutional_weights_binary(layer l, FILE *fp)
 
 void load_convolutional_weights(layer l, FILE *fp)
 {
+    printf("Loading convolutional weights \n");
     if(l.binary){
         //load_convolutional_weights_binary(l, fp);
         //return;

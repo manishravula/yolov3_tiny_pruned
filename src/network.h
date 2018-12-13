@@ -108,6 +108,8 @@ char *get_layer_string(LAYER_TYPE a);
 
 network make_network(int n);
 void forward_network(network net, network_state state);
+void forward_network_custom(network net, network_state state, FILE *output_fp);
+
 void backward_network(network net, network_state state);
 void update_network(network net);
 
@@ -118,6 +120,7 @@ float train_network_datum(network net, float *x, float *y);
 
 matrix network_predict_data(network net, data test);
 YOLODLL_API float *network_predict(network net, float *input);
+YOLODLL_API float *network_predict_custom(network net, float *input, FILE *output_fp);
 float network_accuracy(network net, data d);
 float *network_accuracies(network net, data d, int n);
 float network_accuracy_multi(network net, data d, int n);

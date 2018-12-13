@@ -127,11 +127,15 @@ void resize_batchnorm_layer(layer *layer, int w, int h)
 
 void forward_batchnorm_layer(layer l, network_state state)
 {
+    printf("batchnorm_layer.c:forward_batchnorm_layer Main\n");
+
     if(l.type == BATCHNORM) copy_cpu(l.outputs*l.batch, state.input, 1, l.output, 1);
+
     if(l.type == CONNECTED){
         l.out_c = l.outputs;
         l.out_h = l.out_w = 1;
     }
+
     if(state.train){
         mean_cpu(l.output, l.batch, l.out_c, l.out_h*l.out_w, l.mean);
         variance_cpu(l.output, l.mean, l.batch, l.out_c, l.out_h*l.out_w, l.variance);
@@ -144,7 +148,10 @@ void forward_batchnorm_layer(layer l, network_state state)
         copy_cpu(l.outputs*l.batch, l.output, 1, l.x, 1);
         normalize_cpu(l.output, l.mean, l.variance, l.batch, l.out_c, l.out_h*l.out_w);   
         copy_cpu(l.outputs*l.batch, l.output, 1, l.x_norm, 1);
+        printf("batchnorm_layer.c:forward_batchnorm_layer Execution Training \n");
+
     } else {
+	printf("batchnorm_layer.c:forward_batchnorm_layer Execution Normalization \n");
         normalize_cpu(l.output, l.rolling_mean, l.rolling_variance, l.batch, l.out_c, l.out_h*l.out_w);
     }
     scale_bias(l.output, l.scales, l.batch, l.out_c, l.out_h*l.out_w);
@@ -163,13 +170,13 @@ void backward_batchnorm_layer(const layer l, network_state state)
 }
 
 #ifdef GPU
-
 void pull_batchnorm_layer(layer l)
 {
     cuda_pull_array(l.scales_gpu, l.scales, l.c);
     cuda_pull_array(l.rolling_mean_gpu, l.rolling_mean, l.c);
     cuda_pull_array(l.rolling_variance_gpu, l.rolling_variance, l.c);
 }
+
 void push_batchnorm_layer(layer l)
 {
     cuda_push_array(l.scales_gpu, l.scales, l.c);

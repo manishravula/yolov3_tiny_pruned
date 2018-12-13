@@ -190,6 +190,24 @@ network make_network(int n)
     return net;
 }
 
+void forward_network_custom(network net, network_state state, FILE *output_fp)
+{
+    state.workspace = net.workspace;
+    int i;
+    for(i = 0; i < net.n; ++i){
+        state.index = i;
+        layer l = net.layers[i];
+        if(l.delta){
+            scal_cpu(l.outputs * l.batch, 0, l.delta, 1);
+        }
+        l.forward(l, state);
+        if (i==15){
+            fwrite(l.output,sizeof(float),l.n*13*13,output_fp);
+        }
+        state.input = l.output;
+    }
+}
+
 void forward_network(network net, network_state state)
 {
     state.workspace = net.workspace;
@@ -204,6 +222,8 @@ void forward_network(network net, network_state state)
         state.input = l.output;
     }
 }
+
+
 
 void update_network(network net)
 {
@@ -551,6 +571,26 @@ float *network_predict(network net, float *input)
     float *out = get_network_output(net);
     return out;
 }
+
+float *network_predict_custom(network net, float *input, FILE *output_fp)
+{
+#ifdef GPU
+    if(gpu_index >= 0)  return network_predict_gpu(net, input);
+#endif
+
+    network_state state;
+    state.net = net;
+    state.index = 0;
+    state.input = input;
+    state.truth = 0;
+    state.train = 0;
+    state.delta = 0;
+    forward_network_custom(net, state, output_fp);
+    float *out = get_network_output(net);
+    return out;
+}
+
+
 
 int num_detections(network *net, float thresh)
 {

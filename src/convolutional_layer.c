@@ -889,9 +889,12 @@ void forward_convolutional_layer(convolutional_layer l, network_state state)
         state.input += l.c*l.h*l.w;
     }
 
+    printf("Not Calling BatchNorm in forward \n");
     if(l.batch_normalize){
+	printf("Calling BatchNorm in forward \n");
         forward_batchnorm_layer(l, state);
     }
+
     add_bias(l.output, l.biases, l.batch, l.n, out_h*out_w);
 
     //activate_array(l.output, m*n*l.batch, l.activation);

@@ -7,10 +7,11 @@
 #include "demo.h"
 #include "option_list.h"
 
+#include <glob.h>
+
 #ifdef OPENCV
 #include "opencv2/highgui/highgui_c.h"
 #include "opencv2/core/core_c.h"
-//#include "opencv2/core/core.hpp"
 #include "opencv2/core/version.hpp"
 #include "opencv2/imgproc/imgproc_c.h"
 
@@ -208,6 +209,7 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, i
 
         time=what_time_is_it_now();
         float loss = 0;
+
 #ifdef GPU
         if(ngpus == 1){
             loss = train_network(net, train);
@@ -262,6 +264,7 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, i
         }
         free_data(train);
     }
+
 #ifdef GPU
     if(ngpus != 1) sync_nets(nets, ngpus, 0);
 #endif
@@ -1194,29 +1197,71 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
             name_list, names_size, net.layers[net.n - 1].classes, cfgfile);
         if(net.layers[net.n - 1].classes > names_size) getchar();
     }
+
     srand(2222222);
     double time;
     char buff[256];
     char *input = buff;
     int j;
     float nms=.45;    // 0.4F
-    while(1){
-        if(filename){
+    int n_imgs = 1;
+    uint8_t multi_flag = 0;
+    char filename_cpy[255];
+    char *jpg_loc;
+    FILE *output_fp;
+    output_fp = fopen("data/output_mid","wb");
+
+    glob_t glob_res;
+    if(filename){
             strncpy(input, filename, 256);
             if(strlen(input) > 0)
-                if (input[strlen(input) - 1] == 0x0d) input[strlen(input) - 1] = 0;
-        } else {
-            printf("Enter Image Path: ");
+                if (input[strlen(input) - 1] == 0x0d) input[strlen(input) - 1] = 0;} 
+    else {
+            printf("Enter Image Wildcard: \n");
             fflush(stdout);
             input = fgets(input, 256, stdin);
             if(!input) return;
             strtok(input, "\n");
+            glob(input,GLOB_NOCHECK, 0, &glob_res);
+            n_imgs = glob_res.gl_pathc;
+            printf("Operating on %d images \n",n_imgs);
+            input = glob_res.gl_pathv[0];
+            multi_flag = 1;
+    }
+
+    
+
+    while(n_imgs>0){
+        if (n_imgs>=1 && multi_flag){
+            input = glob_res.gl_pathv[n_imgs-1];
+            printf("-- %d --",n_imgs);
         }
+            
+        
+        printf("Processing %s image \n",input);
+
         image im = load_image(input,0,0,net.c);
         int letterbox = 0;
         image sized = resize_image(im, net.w, net.h);
+   
+        //Get filename for the binary image file.
+        strcpy(filename_cpy,input);
+        jpg_loc = strstr(filename_cpy,".jpg");
+        *(jpg_loc+4)='e';
+
+        //Opening file pointer for new image file.
+        FILE *fp_new = fopen(filename_cpy,"wb");
+        //Write Image to file
+        fwrite(sized.data,sizeof(float),net.w*net.h*3,fp_new);
+        fclose(fp_new);
+        printf("Saved image to %s \n",filename_cpy);
+
+
+        //Output saving file.
+        
         //image sized = letterbox_image(im, net.w, net.h); letterbox = 1;
         layer l = net.layers[net.n-1];
+
 
         //box *boxes = calloc(l.w*l.h*l.n, sizeof(box));
         //float **probs = calloc(l.w*l.h*l.n, sizeof(float *));
@@ -1226,7 +1271,7 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
 
         //time= what_time_is_it_now();
         double time = get_time_point();
-        network_predict(net, X);
+        network_predict_custom(net, X, output_fp);
         //network_predict_image(&net, im); letterbox = 1;
         printf("%s: Predicted in %lf milli-seconds.\n", input, ((double)get_time_point() - time) / 1000);
         //printf("%s: Predicted in %f seconds.\n", input, (what_time_is_it_now()-time));
@@ -1234,12 +1279,15 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         int nboxes = 0;
         detection *dets = get_network_boxes(&net, im.w, im.h, thresh, hier_thresh, 0, 1, &nboxes, letterbox);
         if (nms) do_nms_sort(dets, nboxes, l.classes, nms);
+
+        if (0)
+{ //Reduce Waste
         draw_detections_v3(im, dets, nboxes, thresh, names, alphabet, l.classes, ext_output);
+
         save_image(im, "predictions");
         if (!dont_show) {
             show_image(im, "predictions");
         }
-
         // pseudo labeling concept - fast.ai
         if(save_labels)
         {
@@ -1266,6 +1314,8 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
             fclose(fw);
         }
 
+} //Reduce Waste
+
         free_detections(dets, nboxes);
         free_image(im);
         free_image(sized);
@@ -1277,7 +1327,13 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
             cvDestroyAllWindows();
         }
 #endif
-        if (filename) break;
+        //if (filename) break;
+        n_imgs--;
+    }
+
+    if (output_fp!=NULL){
+        fclose(output_fp);
+        printf("Saved interim output to %s \n","data/output_midm");
     }
 
     // free memory
