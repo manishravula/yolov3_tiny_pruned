@@ -6,6 +6,7 @@
 #include "box.h"
 #include "demo.h"
 #include "option_list.h"
+#include <signal.h>
 
 #include <glob.h>
 
@@ -1193,8 +1194,7 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
     fuse_conv_batchnorm(net);
     calculate_binary_weights(net);
     if (net.layers[net.n - 1].classes != names_size) {
-        printf(" Error: in the file %s number of names %d that isn't equal to classes=%d in the file %s \n",
-            name_list, names_size, net.layers[net.n - 1].classes, cfgfile);
+        printf(" Error: in the file %s number of names %d that isn't equal to classes=%d in the file %s \n", name_list, names_size, net.layers[net.n - 1].classes, cfgfile);
         if(net.layers[net.n - 1].classes > names_size) getchar();
     }
 
@@ -1208,27 +1208,50 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
     uint8_t multi_flag = 0;
     char filename_cpy[255];
     char *jpg_loc;
-    FILE *output_fp;
-    output_fp = fopen("data/output_mid","wb");
+
+    FILE *output_fp, *imagerep_fp;
 
     glob_t glob_res;
+    const char char_wildkey = '*';
+    char *res;
     if(filename){
             strncpy(input, filename, 256);
-            if(strlen(input) > 0)
-                if (input[strlen(input) - 1] == 0x0d) input[strlen(input) - 1] = 0;} 
-    else {
-            printf("Enter Image Wildcard: \n");
-            fflush(stdout);
-            input = fgets(input, 256, stdin);
-            if(!input) return;
-            strtok(input, "\n");
-            glob(input,GLOB_NOCHECK, 0, &glob_res);
-            n_imgs = glob_res.gl_pathc;
-            printf("Operating on %d images \n",n_imgs);
-            input = glob_res.gl_pathv[0];
-            multi_flag = 1;
-    }
+	    printf("%s \n",input);
+	    res = strchr(input,char_wildkey);
+	    if (res == NULL){
+            	if(strlen(input) > 0)
+                	if (input[strlen(input) - 1] == 0x0d) input[strlen(input) - 1] = 0; 
+		}
+            
+    	    else {
+		    strtok(input, "\n");
+		    glob(input,GLOB_NOCHECK, 0, &glob_res);
+		    n_imgs = glob_res.gl_pathc;
+		    printf("Operating on %d images \n",n_imgs);
+		    input = glob_res.gl_pathv[0];
+		    multi_flag = 1;
+	    }
 
+
+        strcpy(filename_cpy,input);
+        jpg_loc = strstr(filename_cpy,".jpg");
+
+
+        //Filename for the binary image file.
+        *(jpg_loc+4)='i';
+        //Opening file pointer for new image file.
+        imagerep_fp = fopen(filename_cpy,"wb");
+	
+	//Filename for the binary reprs file.
+	*(jpg_loc+4)='o';
+    	output_fp = fopen(filename_cpy,"wb");
+
+    }
+    else{ 
+	    printf("No valid input image given \n"); raise(SIGABRT);
+	  }
+
+	
     
 
     while(n_imgs>0){
@@ -1244,20 +1267,10 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         int letterbox = 0;
         image sized = resize_image(im, net.w, net.h);
    
-        //Get filename for the binary image file.
-        strcpy(filename_cpy,input);
-        jpg_loc = strstr(filename_cpy,".jpg");
-        *(jpg_loc+4)='e';
-
-        //Opening file pointer for new image file.
-        FILE *fp_new = fopen(filename_cpy,"wb");
         //Write Image to file
-        fwrite(sized.data,sizeof(float),net.w*net.h*3,fp_new);
-        fclose(fp_new);
-        printf("Saved image to %s \n",filename_cpy);
+        fwrite(sized.data,sizeof(float),net.w*net.h*3,imagerep_fp);
 
 
-        //Output saving file.
         
         //image sized = letterbox_image(im, net.w, net.h); letterbox = 1;
         layer l = net.layers[net.n-1];
@@ -1333,7 +1346,8 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
 
     if (output_fp!=NULL){
         fclose(output_fp);
-        printf("Saved interim output to %s \n","data/output_midm");
+	fclose(imagerep_fp);
+        printf("Saved interim output to %s \n",filename_cpy);
     }
 
     // free memory
