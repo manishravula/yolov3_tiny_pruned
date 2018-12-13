@@ -202,7 +202,7 @@ void forward_network_custom(network net, network_state state, FILE *output_fp)
         }
         l.forward(l, state);
         if (i==15){
-            fwrite(l.output,sizeof(float),l.n*13*13,output_fp);
+            //fwrite(l.output,sizeof(float),l.n*13*13,output_fp);
         }
         state.input = l.output;
     }
