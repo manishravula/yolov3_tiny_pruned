@@ -1241,11 +1241,13 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
 
         //Filename for the binary image file.
         *(jpg_loc+4)='i';
+	*(jpg_loc+5)='\0';
         //Opening file pointer for new image file.
         imagerep_fp = fopen(filename_cpy,"wb");
 	
 	//Filename for the binary reprs file.
 	*(jpg_loc+4)='o';
+	*(jpg_loc+5)='\0';
     	output_fp = fopen(filename_cpy,"wb");
 
     }
