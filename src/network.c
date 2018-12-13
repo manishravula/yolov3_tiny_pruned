@@ -575,7 +575,7 @@ float *network_predict(network net, float *input)
 float *network_predict_custom(network net, float *input, FILE *output_fp)
 {
 #ifdef GPU
-    if(gpu_index >= 0)  return network_predict_gpu(net, input);
+    if(gpu_index >= 0)  return network_predict_gpu_custom(net, input,output_fp);
 #endif
 
     network_state state;

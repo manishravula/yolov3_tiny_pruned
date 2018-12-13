@@ -1187,6 +1187,7 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
 
     image **alphabet = load_alphabet();
     network net = parse_network_cfg_custom(cfgfile, 1); // set batch=1
+    net.n = 16;
     if(weightfile){
         load_weights(&net, weightfile);
     }
@@ -1208,6 +1209,7 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
     uint8_t multi_flag = 0;
     char filename_cpy[255];
     char *jpg_loc;
+    float *interim_out;
 
     FILE *output_fp, *imagerep_fp;
 
@@ -1284,17 +1286,24 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
 
         //time= what_time_is_it_now();
         double time = get_time_point();
-        network_predict_custom(net, X, output_fp);
+
+        interim_out = network_predict_custom(net, X, output_fp);
+        fwrite(interim_out,sizeof(float),13*13*net.layers[15].n,output_fp);
+
         //network_predict_image(&net, im); letterbox = 1;
+        
+
+        //Commenting this part out
         printf("%s: Predicted in %lf milli-seconds.\n", input, ((double)get_time_point() - time) / 1000);
         //printf("%s: Predicted in %f seconds.\n", input, (what_time_is_it_now()-time));
 
+#if 0        
+        if (0)
+{ //Reduce Waste
         int nboxes = 0;
         detection *dets = get_network_boxes(&net, im.w, im.h, thresh, hier_thresh, 0, 1, &nboxes, letterbox);
         if (nms) do_nms_sort(dets, nboxes, l.classes, nms);
 
-        if (0)
-{ //Reduce Waste
         draw_detections_v3(im, dets, nboxes, thresh, names, alphabet, l.classes, ext_output);
 
         save_image(im, "predictions");
@@ -1330,6 +1339,8 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
 } //Reduce Waste
 
         free_detections(dets, nboxes);
+#endif
+
         free_image(im);
         free_image(sized);
         //free(boxes);
